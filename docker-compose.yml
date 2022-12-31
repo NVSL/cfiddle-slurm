@@ -54,6 +54,10 @@ services:
       - etc_slurm:/etc/slurm
       - slurm_jobdir:/data
       - var_log_slurm:/var/log/slurm
+#      - type: bind
+#        source: /var/run/docker.sock
+#        target: /var/run/docker.sock
+      - cfiddle_venv: /cfiddle_venv
     expose:
       - "6818"
     depends_on:
@@ -69,6 +73,10 @@ services:
       - etc_slurm:/etc/slurm
       - slurm_jobdir:/data
       - var_log_slurm:/var/log/slurm
+ #     - type: bind
+ #       source: /var/run/docker.sock
+ #       target: /var/run/docker.sock
+       - cfiddle_venv: /cfiddle_venv
     expose:
       - "6818"
     depends_on:
@@ -80,3 +88,4 @@ volumes:
   slurm_jobdir:
   var_lib_mysql:
   var_log_slurm:
+  cfiddle_venv:
