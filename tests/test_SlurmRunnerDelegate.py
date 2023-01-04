@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from cfiddle import *
 from cfiddle.Runner import SubprocessDelegate
-from cfiddle_slurm import SlurmRunnerDelegate
+from cfiddle_slurm import *
 import pytest
 
 @contextmanager
@@ -20,13 +20,13 @@ def working_directory(path):
 
 def _pristine_dir():
     with tempfile.TemporaryDirectory(dir=".") as cfiddle_dir:
-        with cfiddle_config(CFIDDLE_BUILD_ROOT=cfiddle_dir):
-            yield cfiddle_dir
+            with cfiddle_config(CFIDDLE_BUILD_ROOT=cfiddle_dir):
+                yield cfiddle_dir
 
 @pytest.fixture(scope="module",
                 params=[SubprocessDelegate,
-                        SlurmRunnerDelegate.SlurmRunnerDelegate,
-                        SlurmRunnerDelegate.TestingSlurmRunnerDelegate])
+                        SlurmRunnerDelegate,
+                        TestingSlurmRunnerDelegate])
 def setup(request):
     with cfiddle_config(RunnerDelegate_type=request.param):
         enable_debug()
@@ -89,3 +89,21 @@ extern "C" void foo() {
     with open("number_file.out") as f:
         assert int(f.read()) == 42;
     
+
+def test_slurm_execution(capfd):
+    from cfiddle.Runner import direct_execution
+    import socket
+    with slurm_execution():
+        run(build(code(r"""
+#include <unistd.h>
+#include<iostream>  
+  
+extern "C" void go2()
+{
+        char hostbuffer[256];
+        gethostname(hostbuffer, sizeof(hostbuffer));
+        std::cerr << hostbuffer;//
+}
+""")), "go2", arg_map())
+
+        
