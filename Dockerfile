@@ -1,4 +1,4 @@
-FROM jupyter/scipy-notebook
+FROM stevenjswanson/cse142l-swanson-dev:latest
 
 LABEL org.opencontainers.image.source="https://github.com/NVSL/cfiddle-slurm" \
       org.opencontainers.image.title="cfiddle-slurm-cluster" \
@@ -6,12 +6,10 @@ LABEL org.opencontainers.image.source="https://github.com/NVSL/cfiddle-slurm" \
       org.label-schema.docker.cmd="docker-compose up -d" \
       maintainer="Steven Swanson"
 
-
 USER root
 RUN mkdir /slurm
 WORKDIR /slurm
 
-ARG GOSU_VERSION=1.11
 
 COPY SLURM_TAG ./
 COPY IMAGE_TAG ./
@@ -21,10 +19,13 @@ COPY slurmdbd.conf ./
 COPY ./install_slurm.sh ./
 RUN ./install_slurm.sh
 
-COPY ./install_cfiddle.sh ./
-RUN ./install_cfiddle.sh 
+COPY . /cse142L/cfiddle-slurm
+RUN (cd /cse142L/cfiddle-slurm; /opt/conda/bin/pip install -e .)
+RUN ls /opt/conda/lib/python3.10/site-packages/cfiddle*
+#COPY ./install_cfiddle.sh ./
+#RUN ./install_cfiddle.sh 
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/opt/conda/bin/cfiddle_with_env.sh", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["slurmdbd"]

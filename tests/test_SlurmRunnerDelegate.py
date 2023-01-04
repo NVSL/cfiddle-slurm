@@ -25,7 +25,8 @@ def _pristine_dir():
 
 @pytest.fixture(scope="module",
                 params=[SubprocessDelegate,
-                        SlurmRunnerDelegate.SlurmRunnerDelegate])
+                        SlurmRunnerDelegate.SlurmRunnerDelegate,
+                        SlurmRunnerDelegate.TestingSlurmRunnerDelegate])
 def setup(request):
     with cfiddle_config(RunnerDelegate_type=request.param):
         enable_debug()
@@ -33,8 +34,8 @@ def setup(request):
 
 def test_file_list(setup):
     exe = build(code('extern "C" int foo() {return 4;}'))
-    r = run(exe, "foo", extra_required_files=["empty_file"])
-    assert len(r[0].invocation.compute_required_files()) == 2
+    r = run(exe, "foo", extra_input_files=["empty_file"])
+    assert len(r[0].invocation.compute_input_files()) == 2
     
 def test_file_zip():
 
@@ -69,7 +70,7 @@ extern "C" int foo() {
 }
 
 """))
-    r = run(exe, "foo", extra_required_files=["number_file.in"])
+    r = run(exe, "foo", extra_input_files=["number_file.in"])
     assert r[0].return_value == 43
 
 def test_output_transfer(setup):

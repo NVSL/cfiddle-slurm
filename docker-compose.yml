@@ -57,7 +57,9 @@ services:
 #      - type: bind
 #        source: /var/run/docker.sock
 #        target: /var/run/docker.sock
-      - cfiddle_venv: /cfiddle_venv
+      - type: bind
+        source: /home/swanson/CSE141pp-Root
+        target: /cse142L
     expose:
       - "6818"
     depends_on:
@@ -76,7 +78,9 @@ services:
  #     - type: bind
  #       source: /var/run/docker.sock
  #       target: /var/run/docker.sock
-       - cfiddle_venv: /cfiddle_venv
+      - type: bind
+        source: /home/swanson/CSE141pp-Root
+        target: /cse142L
     expose:
       - "6818"
     depends_on:

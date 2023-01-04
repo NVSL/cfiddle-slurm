@@ -7,7 +7,7 @@ with open("VERSION") as f:
     version = f.read()
     
 setup(
-    name="cfiddle-slurm",
+    name="cfiddle_slurm",
     version=version.strip(),
     package_data={
         'cfiddle-slurm': ['VERSION'],
@@ -35,7 +35,7 @@ setup(
     package_dir={'': 'src'},
     entry_points={
         'console_scripts' :[
-            #'cfiddle-run=cfiddle.Runner:invoke_runner',
+            'cfiddle-slurm-run=cfiddle_slurm.SlurmRunnerDelegate:invoke_slurm_runner'
         ]
     }
 )

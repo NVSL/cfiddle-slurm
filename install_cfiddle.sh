@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -ex
 
-git clone http://github.com/NVSL/cfiddle
-pip install cfiddle
-(cd cfiddle; ./install_prereqs.sh)
+git clone -b devel http://github.com/NVSL/cfiddle
+cd cfiddle; pip install cfiddle -e 
+cfiddle_install_prereqs.sh
 
 
