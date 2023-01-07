@@ -58,7 +58,7 @@ To add your ubuntu-based container to the cluster:
 
 ```console
 ./install_slurm.sh
-docker network connect slurm_default swanson-dev
+docker network connect cfiddle-slurm_default swanson-dev
 service munge start
 service slurmd start
 ```

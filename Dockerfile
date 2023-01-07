@@ -25,6 +25,11 @@ RUN ls /opt/conda/lib/python3.10/site-packages/cfiddle*
 #COPY ./install_cfiddle.sh ./
 #RUN ./install_cfiddle.sh 
 
+RUN groupadd cfiddlers
+RUN useradd -g cfiddlers -p fiddle -s /usr/bin/bash test_fiddler
+RUN useradd -r -s /usr/sbin/nologin -u 7000 cfiddle 
+COPY cfiddle_sudoers /etc/sudoers.d
+
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["/opt/conda/bin/cfiddle_with_env.sh", "/usr/local/bin/docker-entrypoint.sh"]

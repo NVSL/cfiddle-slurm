@@ -14,7 +14,7 @@ services:
       - var_lib_mysql:/var/lib/mysql
 
   slurmdbd:
-    image: cfiddle-slurm:${IMAGE_TAG}
+    image: cfiddle-slurm:21.08.6.1
     build:
       context: .
     command: ["slurmdbd"]
@@ -30,7 +30,7 @@ services:
       - mysql
 
   slurmctld:
-    image: cfiddle-slurm:${IMAGE_TAG}
+    image: cfiddle-slurm:21.08.6.1
     command: ["slurmctld"]
     container_name: slurmctld
     hostname: slurmctld
@@ -45,10 +45,11 @@ services:
       - "slurmdbd"
 
   c1:
-    image: cfiddle-slurm:${IMAGE_TAG}
+    image: cfiddle-slurm:21.08.6.1
     command: ["slurmd"]
     hostname: c1
     container_name: c1
+    privileged: True
     volumes:
       - etc_munge:/etc/munge
       - etc_slurm:/etc/slurm
@@ -66,10 +67,11 @@ services:
       - "slurmctld"
 
   c2:
-    image: cfiddle-slurm:${IMAGE_TAG}
+    image: cfiddle-slurm:21.08.6.1
     command: ["slurmd"]
     hostname: c2
     container_name: c2
+    privileged: True
     volumes:
       - etc_munge:/etc/munge
       - etc_slurm:/etc/slurm
@@ -86,6 +88,31 @@ services:
     depends_on:
       - "slurmctld"
 
+  cfiddle-dev:
+    image: cfiddle-slurm:21.08.6.1
+    command: ["slurmd"]
+    hostname: cfiddle-dev
+    container_name: cfiddle-dev
+    privileged: True
+    volumes:
+      - etc_munge:/etc/munge
+      - etc_slurm:/etc/slurm
+      - slurm_jobdir:/data
+      - var_log_slurm:/var/log/slurm
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: /home/swanson/CSE141pp-Root
+        target: /cse142L
+      - type: bind
+        source: ${HOME}
+        target: ${HOME}
+    expose:
+      - "8888"
+    depends_on:
+      - "slurmctld"
+   
 volumes:
   etc_munge:
   etc_slurm:
