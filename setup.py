@@ -10,7 +10,7 @@ setup(
     name="cfiddle_slurm",
     version=version.strip(),
     package_data={
-        'cfiddle-slurm': ['VERSION'],
+        'cfiddle_slurm': ['VERSION'],
     },
     install_requires = ["cfiddle"],
     description="Support for running CFiddle functions via Slurm",
@@ -35,9 +35,12 @@ setup(
     package_dir={'': 'src'},
     entry_points={
         'console_scripts' :[
-            'cfiddle-slurm-run=cfiddle_slurm.SlurmRunnerDelegate:invoke_slurm_runner'
+            'cfiddle-slurm-runner-delegate-run=cfiddle_slurm.SlurmRunnerDelegate:slurm_runner_delegate_run'
         ]
-    }
+    },
+    scripts=['bin/cfiddle-slurm-run-shared-directory.sh',
+             'bin/cfiddle-slurm-run-unshared-directory.sh'
+             ]
 )
 
 

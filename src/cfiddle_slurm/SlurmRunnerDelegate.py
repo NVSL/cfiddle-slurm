@@ -19,7 +19,6 @@ class SlurmRunnerDelegate(SubprocessDelegate):
 
     def __init__(self, *argc,**kwargs):
         super(SubprocessDelegate, self).__init__(*argc, **kwargs)
-        self._run_in_slurm = True
     
     def execute(self, command, runner):
 
@@ -32,37 +31,37 @@ class SlurmRunnerDelegate(SubprocessDelegate):
 
         with tempfile.NamedTemporaryFile(dir=".", suffix=".zip") as inputs_file:
             with tempfile.NamedTemporaryFile(dir=".", suffix=".zip") as outputs_file:
-                    self._inputs_file = inputs_file.name
-                    self._outputs_file = outputs_file.name
-                    log.debug(f"{os.getcwd()=}")
-                    log.debug(f"{self._inputs_file=}")
-                    log.debug(f"{self._outputs_file=}")
-                    self._create_inputs_file()
-                    if self._run_in_slurm:
-                        self.run_in_slurm()
-                    else:
-                        self.run()
-                    self._unzip_outputs_file()
+                self._inputs_file = inputs_file.name
+                self._outputs_file = outputs_file.name
+                log.debug(f"{os.getcwd()=}")
+                log.debug(f"{self._inputs_file=}")
+                log.debug(f"{self._outputs_file=}")
+                self._create_inputs_file()
+                self.run_in_slurm()
+                self._unzip_outputs_file()
 
     def run_in_slurm(self):
         with tempfile.TemporaryDirectory(dir=".") as d:
-            slurm_state = os.path.join(d, "delegate.pickle")
-            with open(slurm_state, "wb") as out:
+            self.slurm_state = os.path.join(d, "delegate.pickle")
+            with open(self.slurm_state, "wb") as out:
                 pickle.dump(self, out)
-            self._invoke_shell(["salloc", "srun", "cfiddle-slurm-run", "--slurm-state", slurm_state, "--log-level", str(log.root.level)])
+            self._invoke_slurm()
 
+    def _invoke_slurm(self):
+        self._invoke_shell(["salloc", "cfiddle-slurm-run-shared-directory.sh", self.slurm_state, ".", str(log.root.level)])
+            
     def run(self):
-        with tempfile.TemporaryDirectory(dir=".") as execution_directory:
+#        with tempfile.TemporaryDirectory(dir=".") as execution_directory:
             self._execution_directory = os.getcwd() #execution_directory
             log.debug(f"{self._execution_directory=}")
 
-            self._copy_inputs_file()
+#            self._copy_inputs_file()
             with working_directory(self._execution_directory):
                 self._unzip_inputs_file()
                 self._do_execution()
                 self._collect_outputs()
                 self._create_outputs_file()
-            self._copy_back_outputs_file()
+ #           self._copy_back_outputs_file()
 
     def _create_inputs_file(self):
         log.debug(f"Copying input files")
@@ -87,7 +86,7 @@ class SlurmRunnerDelegate(SubprocessDelegate):
         log.debug(f"{self._output_files=}")
         
     def _create_outputs_file(self):
-        zip_files(self._output_files, "outputs.zip")
+        zip_files(self._output_files, self._outputs_file)
 
     def _copy_back_outputs_file(self):
         src_path = os.path.join(self._execution_directory, "outputs.zip")
@@ -129,6 +128,17 @@ class TestingSlurmRunnerDelegate(SlurmRunnerDelegate):
         super(SlurmRunnerDelegate, self).__init__(*argc, **kwargs)
         self._run_in_slurm = False
 
+    def run_in_slurm(self):
+        super().run()
+
+class SlurmRunnerDelegateUnshared(SlurmRunnerDelegate):
+
+    def _invoke_slurm(self):
+        state_file = os.path.abspath(self.slurm_state)
+        inputs_file = os.path.abspath(self._inputs_file)
+        with tempfile.TemporaryDirectory() as hideout:
+            with working_directory(hideout):
+                self._invoke_shell(["salloc", "cfiddle-slurm-run-unshared-directory.sh", state_file, inputs_file, str(log.root.level)])
 
         
 def zip_files(file_list, output):
@@ -178,15 +188,17 @@ def working_directory(path):
 @click.command()
 @click.option('--slurm-state', required=True, type=click.File("rb"), help="File with a pickled slurm state in it.")
 @click.option('--log-level', default=None, type=int, help="Verbosity level for logging.")
+@click.option("--cwd", default=".", help="Directory to run in")
 #@click.option('--results', "results", required=True, type=click.File("wb"), help="File to deposit the results in.")
-def invoke_slurm_runner(slurm_state, log_level):
+def slurm_runner_delegate_run(slurm_state, log_level, cwd):
     import platform
     if log_level is not None:
         log.root.setLevel(log_level)
     log.debug(f"Executing in delegate process on {platform.node()}")
-    do_invoke_slurm_runner(slurm_state)
+    with working_directory(cwd):
+        do_slurm_runner_delegate_run(slurm_state)
     
-def do_invoke_slurm_runner(slurm_state):
+def do_slurm_runner_delegate_run(slurm_state):
     slurm_delegate = pickle.load(slurm_state)
     try:
         slurm_delegate.run()
