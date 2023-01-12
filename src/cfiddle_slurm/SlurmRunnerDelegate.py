@@ -17,11 +17,7 @@ from cfiddle.Runner import SubprocessDelegate
         
 class SlurmRunnerDelegate(SubprocessDelegate):
 
-    def __init__(self, *argc,**kwargs):
-        super(SubprocessDelegate, self).__init__(*argc, **kwargs)
-    
     def execute(self, command, runner):
-
         self._command = command
         self._runner = runner
         log.debug(f"{self._command=}")
@@ -32,15 +28,13 @@ class SlurmRunnerDelegate(SubprocessDelegate):
         with tempfile.NamedTemporaryFile(mode="wb", dir=".") as f:
             self.slurm_state = f.name
             pickle.dump(self, f)
+            f.flush()
             self._invoke_slurm()
 
     def _invoke_slurm(self):
         self._invoke_shell(["salloc", "cfiddle-slurm-run-shared-directory.sh", self.slurm_state, ".", str(log.root.level)])
             
     def run(self):
-        self._do_execution()
-
-    def _do_execution(self):
         super().execute(self._command, self._runner)
 
     def _invoke_shell(self, cmd):
