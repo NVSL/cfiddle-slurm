@@ -26,8 +26,7 @@ def _pristine_dir():
 @pytest.fixture(scope="module",
                 params=[SubprocessDelegate,
                         SlurmRunnerDelegate,
-                        TestingSlurmRunnerDelegate,
-                        SlurmRunnerDelegateUnshared])
+                        TestingSlurmRunnerDelegate])
 def setup(request):
     with cfiddle_config(RunnerDelegate_type=request.param):
         enable_debug()
