@@ -47,7 +47,8 @@ def test_file_zip():
         
         zip_files(files_to_zip, os.path.join(dst, "test.zip"))
         unzip_files(os.path.join(dst, "test.zip"), directory=dst)
-        unziped_files = glob.glob(f"**", root_dir=dst, recursive=True)
+        with working_directory(dst):
+            unziped_files = glob.glob(f"**", recursive=True)
         assert set(unziped_files) == set(files_to_zip + ["test.zip"])
 
         for f in files_to_zip:
