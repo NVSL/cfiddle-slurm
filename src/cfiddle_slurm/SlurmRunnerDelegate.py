@@ -14,7 +14,32 @@ import shutil
 
 from cfiddle.Runner import SubprocessDelegate
 
-        
+# Slurm Tasks
+# 3. Execute command in remote execution directory.
+# 4. Execute command in local directory
+
+# SSH tasks w/shared home directory
+# 3. Execute command in remote execution directory.
+# 4. Execute command in local directory
+
+# SSH tasks w/o shared home directory
+# 1. Build inputs zip file
+# 2. Create remote temp directory
+# 3. scp inputs file
+# 4. Execute command in remote execution directory.
+# 5. Execute command in local directory (in this process, in a separate process, in a docker container, with sudo in a docker container)
+# 6. Build outputs zip file
+# 7. scp outputs file back
+# 8. Copy back outputs zip file and unpack locally
+
+# native tasks
+# 4. Execute command in local directory
+#   1. in this process
+#   2. in a separate process
+#   3. in a docker container
+#   4. with sudo in a docker container
+
+
 class SlurmRunnerDelegate(SubprocessDelegate):
 
     def execute(self, command, runner):
@@ -22,19 +47,16 @@ class SlurmRunnerDelegate(SubprocessDelegate):
         self._runner = runner
         log.debug(f"{self._command=}")
         log.debug(f"{os.getcwd()=}")
-        self.run_in_slurm()
 
-    def run_in_slurm(self):
-        with tempfile.NamedTemporaryFile(mode="wb", dir=".") as f:
-            self.slurm_state = f.name
-            pickle.dump(self, f)
-            f.flush()
-            self._invoke_slurm()
+        with tempfile.NamedTemporaryFile(mode="wb", dir=".") as slurm_state:
+            pickle.dump(self, slurm_state)
+            slurm_state.flush()
+            self._invoke_slurm(slurm_state.name)
 
-    def _invoke_slurm(self):
-        self._invoke_shell(["salloc", "cfiddle-slurm-run-shared-directory.sh", self.slurm_state, ".", str(log.root.level)])
+    def _invoke_slurm(self, slurm_state):
+        self._invoke_shell(["salloc", "cfiddle-slurm-run-shared-directory.sh", slurm_state, ".", str(log.root.level)])
             
-    def run(self):
+    def subprocess_run(self):
         super().execute(self._command, self._runner)
 
     def _invoke_shell(self, cmd):
@@ -44,127 +66,209 @@ class SlurmRunnerDelegate(SubprocessDelegate):
             log.debug(f"{r.stdout.decode()}")
             log.debug(f"{r.stderr.decode()}")
         except subprocess.CalledProcessError as e:
-            raise Exception(f"Slurm execution failed: {e} {e.stdout.decode()} {e.stderr.decode()}")
-        
-class _SlurmRunnerDelegate(SubprocessDelegate):
-
-    def __init__(self, *argc,**kwargs):
-        super(SubprocessDelegate, self).__init__(*argc, **kwargs)
+            raise Exception(f"Shell execution failed: {e} {e.stdout.decode()} {e.stderr.decode()}")
     
+class ShellDelegate(SubprocessDelegate):
+
+    def __init__(self, shell_command=None, single_string=True, *argc, **kwargs):
+        super().__init__()
+        if shell_command is None:
+            shell_command = ["bash", "-c"]
+        self._shell_command = shell_command
+        self._single_string = single_string
+
+    def execute(self, command, runner):
+        if  False and self._single_string:
+            super().execute(self._shell_command + [" ".join(command)], runner)
+        else:
+            super().execute(self._shell_command + command, runner)
+
+
+class SudoDelegate(ShellDelegate):
+
+    def __init__(self, user, *argc, **kwargs):
+        super().__init__(["sudo", "--preserve-env=PATH", "--preserve-env=LD_LIBRARY_PATH", "-u", user], single_string=False, *argc, **kwargs)
+
+def SudoSelfDelegate():
+    return SudoDelegate(user=pwd.getpwuid(os.getuid()).pw_name)
+
+class DifferentDirectoryDelegate(SubprocessDelegate):
+
+    def __init__(self, execution_directory=None, *argc,**kwargs):
+        super().__init__(*argc, **kwargs)
+        self._execution_directory = execution_directory
+        
     def execute(self, command, runner):
 
-        self._command = command
         self._runner = runner
-        self._files_to_take = self._collect_input_filenames(runner)
-    
-        log.debug(f"{self._command=}")
-        log.debug(f"{self._files_to_take=}")
+        log.debug(f"{command=}")
 
-        with tempfile.NamedTemporaryFile(dir=".", suffix=".zip") as inputs_file:
-            with tempfile.NamedTemporaryFile(dir=".", suffix=".zip") as outputs_file:
-                #self._inputs_file = inputs_file.name
-                #self._outputs_file = outputs_file.name
+        with tempfile.NamedTemporaryFile(suffix=".zip") as inputs_file:
+            with tempfile.NamedTemporaryFile(suffix=".zip") as outputs_file:
+                self._inputs_file = inputs_file.name
+                self._outputs_file = outputs_file.name
                 log.debug(f"{os.getcwd()=}")
-                #log.debug(f"{self._inputs_file=}")
-                #log.debug(f"{self._outputs_file=}")
-                #self._create_inputs_file()
-                self.run_in_slurm()
-                #self._unzip_outputs_file()
+                log.debug(f"{self._inputs_file=}")
+                log.debug(f"{self._outputs_file=}")
+                self._collect_inputs()
+                self._create_inputs_file()
+                log.debug(f"{self._execution_directory=}")
+                with tempfile.TemporaryDirectory() if self._execution_directory is None else nullcontext(self._execution_directory) as d:
+                    with working_directory(d):
+                        self._unzip_inputs_file()
+                        super().execute(command, self._runner)
+                        self._collect_outputs()
+                        self._create_outputs_file()                        
+                self._unzip_outputs_file()
 
-    def run_in_slurm(self):
-        with tempfile.TemporaryDirectory(dir=".") as d:
-            self.slurm_state = os.path.join(d, "delegate.pickle")
-            with open(self.slurm_state, "wb") as out:
-                pickle.dump(self, out)
-            self._invoke_slurm()
+    def _collect_inputs(self):
+        files = set(self._runner.compute_input_files())
+        
+        for invocation in self._runner.get_invocations():
+            files = files.union(invocation.compute_input_files())
 
-    def _invoke_slurm(self):
-        self._invoke_shell(["salloc", "cfiddle-slurm-run-shared-directory.sh", self.slurm_state, ".", str(log.root.level)])
-            
-    def run(self):
-        #self._execution_directory = os.getcwd() #execution_directory
-        #log.debug(f"{self._execution_directory=}")
-        #self._unzip_inputs_file()
-        self._do_execution()
-        #self._collect_outputs()
-        #self._create_outputs_file()
+        self._input_files = list(files)
+        log.debug(f"{self._input_files=}")
 
     def _create_inputs_file(self):
         log.debug(f"Copying input files")
-        zip_files(self._files_to_take, self._inputs_file)
+        zip_files(self._input_files, self._inputs_file)
         
-    # def _copy_inputs_file(self):
-    #     dst_path = os.path.join(self._execution_directory, "inputs.zip")
-    #     log.debug(f"Copying inputs file {self._inputs_file} to {dst_path}.")
-    #     shutil.copyfile(self._inputs_file, dst_path)
+    def _unzip_inputs_file(self):
+        unzip_files(self._inputs_file, directory=".")
 
-    # def _unzip_inputs_file(self):
-    #     unzip_files(self._inputs_file, directory=self._execution_directory)
+    def _collect_outputs(self):
+        output_files = self._collect_output_filenames()
+        output_files = sum([glob.glob(f, recursive=True) for f in output_files], [])
 
-    def _do_execution(self):
-        super().execute(self._command, self._runner)
+        self._output_files = list(set(output_files))
+        log.debug(f"{self._output_files=}")
+      
+    def _collect_output_filenames(self):
+        files = set(self._runner.compute_output_files())
 
-    # def _collect_outputs(self):
-    #     output_files = self._collect_output_filenames(self._runner)
-    #     output_files = sum([glob.glob(f, recursive=True) for f in output_files], [])
-
-    #     self._output_files = list(set(output_files))
-    #     log.debug(f"{self._output_files=}")
-        
-    # def _create_outputs_file(self):
-    #     zip_files(self._output_files, self._outputs_file)
-
-    # def _copy_back_outputs_file(self):
-    #     src_path = os.path.join(self._execution_directory, "outputs.zip")
-    #     log.debug(f"Copying inputs file  {src_path} to {self._outputs_file}.")
-    #     shutil.copyfile(src_path, self._outputs_file)
-
-    # def _unzip_outputs_file(self):
-    #     unzip_files(self._outputs_file, ".")
-
-    def _collect_input_filenames(self, runner):
-        files = set(runner.compute_input_files())
-        
-        for invocation in runner.get_invocations():
-            files = files.union(invocation.compute_input_files())
-
-        return list(files)
-
-    def _collect_output_filenames(self, runner):
-        files = set(runner.compute_output_files())
-
-        for invocation in runner.get_invocations():
+        for invocation in self._runner.get_invocations():
             files = files.union(invocation.compute_output_files())
 
         return list(files)
 
+    def _create_outputs_file(self):
+        zip_files(self._output_files, self._outputs_file)
 
-    def _invoke_shell(self, cmd):
-        try:
-            log.debug(f"Executing in {' '.join(cmd)=}")
-            r = subprocess.run(cmd, check=True, capture_output=True)
-            log.debug(f"{r.stdout.decode()}")
-            log.debug(f"{r.stderr.decode()}")
-        except subprocess.CalledProcessError as e:
-            raise Exception(f"Slurm execution failed: {e} {e.stdout.decode()} {e.stderr.decode()}")
+    def _unzip_outputs_file(self):
+        unzip_files(self._outputs_file, ".")
+
+class GenericSelfContainedDelegate(SubprocessDelegate):
+
+    def __init__(self, function_delegator, *argc, **kwargs):
+        super().__init__(*argc, **kwargs)
+        self._function_delegator = function_delegator
+
+    def execute(self, command, runner):        
+        self._command = command
+        self._runner = runner
+        self.pre_execute()
+        self._function_delegator.invoke(self, "do_execution")
+        self.post_execute()
+
+    def pre_execute(self):
+        self._inputs_file = io.BytesIO()
+        self._collect_inputs()
+        self._create_inputs_file()
+
+    def do_execution(self):
+        self._unzip_inputs_file()
+        super().execute(self._command, self._runner)
+        self._collect_outputs()
+        self._outputs_file = io.BytesIO()
+        self._create_outputs_file()                     
+
+    def post_execute(self):
+        self._unzip_outputs_file()
+
+    def _collect_inputs(self):
+        files = set(self._runner.compute_input_files())
         
-class TestingSlurmRunnerDelegate(SlurmRunnerDelegate):
+        for invocation in self._runner.get_invocations():
+            files = files.union(invocation.compute_input_files())
 
+        self._input_files = list(files)
+        log.debug(f"{self._input_files=}")
+
+    def _create_inputs_file(self):
+        log.debug(f"Copying input files")
+        zip_files(self._input_files, self._inputs_file)
+        
+    def _unzip_inputs_file(self):
+        unzip_files(self._inputs_file, directory=".")
+
+    def _collect_outputs(self):
+        output_files = self._collect_output_filenames()
+        output_files = sum([glob.glob(f, recursive=True) for f in output_files], [])
+
+        self._output_files = list(set(output_files))
+        log.debug(f"{self._output_files=}")
+      
+    def _collect_output_filenames(self):
+        files = set(self._runner.compute_output_files())
+
+        for invocation in self._runner.get_invocations():
+            files = files.union(invocation.compute_output_files())
+
+        return list(files)
+
+    def _create_outputs_file(self):
+        zip_files(self._output_files, self._outputs_file)
+
+    def _unzip_outputs_file(self):
+        unzip_files(self._outputs_file, ".")
+
+
+from delegate_function import BaseDelegate, TemporaryDirectoryDelegate as Foo
+def TestGenericSelfContainedDelegate():
+    return GenericSelfContainedDelegate(Foo(subdelegate=BaseDelegate()))
+
+
+class DockerRunnerDelegate(SubprocessDelegate):
+
+    def execute(self, command, runne):
+        self._command = command
+        self._runner = runner
+        log.debug(f"{self._command=}")
+        log.debug(f"{os.getcwd()=}")
+
+        with tempfile.TemporaryDirectory() as d:
+            with tempfile.NamedTemporaryFile(mode="wb", dir = d) as f:
+                pickle.dump(self, f)
+                f.flush()
+                self._invoke_docker(working_directory=d, state_file=f.name)
+
+
+    def _invoke_docker(self, working_directory, state_file):
+        self._invoke_shell(["docker", "run",
+                            "-w", working_directory,
+                            "--mount type=bind,source=/tmp,dst=/tmp",
+                            image,
+                            "cfiddle-slurm-run-shared-directory.sh", slurm_state, ".", str(log.root.level)])
+            
+
+    def subprocess_run(self):
+        super().execute(self._command, self._runner)
+
+class TemporaryDirectoryDelegate(DifferentDirectoryDelegate):
     def __init__(self, *argc,**kwargs):
-        super(SlurmRunnerDelegate, self).__init__(*argc, **kwargs)
-        self._run_in_slurm = False
+        self._temp_directory = tempfile.TemporaryDirectory()
+        super().__init__(self._temp_directory.name, *argc, **kwargs)
 
-    def run_in_slurm(self):
-        super().run()
 
-class SlurmRunnerDelegateUnshared(SlurmRunnerDelegate):
-
-    def _invoke_slurm(self):
-        state_file = os.path.abspath(self.slurm_state)
-        inputs_file = os.path.abspath(self._inputs_file)
-        with tempfile.TemporaryDirectory() as hideout:
-            with working_directory(hideout):
-                self._invoke_shell(["salloc", "cfiddle-slurm-run-unshared-directory.sh", state_file, inputs_file, str(log.root.level)])
+#class SlurmRunnerDelegateUnshared(SlurmRunnerDelegate):
+#
+#    def _invoke_slurm(self):
+#        state_file = os.path.abspath(self.slurm_state)
+#        inputs_file = os.path.abspath(self._inputs_file)
+#        with tempfile.TemporaryDirectory() as hideout:
+#            with working_directory(hideout):
+#                self._invoke_shell(["salloc", "cfiddle-slurm-run-unshared-directory.sh", state_file, inputs_file, str(log.root.level)])
 
         
 def zip_files(file_list, output):
@@ -227,7 +331,7 @@ def slurm_runner_delegate_run(slurm_state, log_level, cwd):
 def do_slurm_runner_delegate_run(slurm_state):
     slurm_delegate = pickle.load(slurm_state)
     try:
-        slurm_delegate.run()
+        slurm_delegate.subprocess_run()
     except: #CFiddleException as e:
         raise
         

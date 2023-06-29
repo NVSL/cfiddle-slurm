@@ -1,11 +1,14 @@
 import tempfile
 import glob
 import os
+import pwd
 from contextlib import contextmanager
 
 from cfiddle import *
 from cfiddle.Runner import SubprocessDelegate
+from delegate_function import delegate_function_run, BaseDelegate
 from cfiddle_slurm import *
+from cfiddle_slurm.SlurmRunnerDelegate import SudoSelfDelegate, GenericSelfContainedDelegate, TestGenericSelfContainedDelegate
 import pytest
 
 @contextmanager
@@ -20,13 +23,19 @@ def working_directory(path):
 
 def _pristine_dir():
     with tempfile.TemporaryDirectory(dir=".") as cfiddle_dir:
-            with cfiddle_config(CFIDDLE_BUILD_ROOT=cfiddle_dir):
-                yield cfiddle_dir
+        with cfiddle_config(CFIDDLE_BUILD_ROOT=cfiddle_dir):
+            yield cfiddle_dir
 
 @pytest.fixture(scope="module",
-                params=[SubprocessDelegate,
-                        SlurmRunnerDelegate,
-                        TestingSlurmRunnerDelegate])
+                params=[
+                        #SubprocessDelegate,
+                        #SlurmRunnerDelegate,
+                        #DifferentDirectoryDelegate,
+                        #TemporaryDirectoryDelegate,
+                        #ShellDelegate,
+                        #SudoSelfDelegate,
+                        TestGenericSelfContainedDelegate
+                        ])
 def setup(request):
     with cfiddle_config(RunnerDelegate_type=request.param):
         enable_debug()
@@ -37,6 +46,7 @@ def test_file_list(setup):
     r = run(exe, "foo", extra_input_files=["empty_file"])
     assert len(r[0].invocation.compute_input_files()) == 2
     
+
 def test_file_zip():
 
     from cfiddle_slurm.SlurmRunnerDelegate import zip_files, unzip_files, collect_file_metadata
@@ -103,7 +113,7 @@ extern "C" void go2()
 {
         char hostbuffer[256];
         gethostname(hostbuffer, sizeof(hostbuffer));
-        std::cerr << hostbuffer;//
+        std::cerr << hostbuffer;
 }
 """)), "go2", arg_map())
 

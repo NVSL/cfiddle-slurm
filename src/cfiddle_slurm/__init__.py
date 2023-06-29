@@ -1,12 +1,16 @@
 from contextlib import contextmanager
 from cfiddle import *
 
-from  .SlurmRunnerDelegate import SlurmRunnerDelegate, TestingSlurmRunnerDelegate, SlurmRunnerDelegateUnshared
+from  .SlurmRunnerDelegate import SlurmRunnerDelegate, DifferentDirectoryDelegate, TemporaryDirectoryDelegate, ShellDelegate, SudoDelegate
 
 all=["SlurmRunnerDelegate",
      "slurm_execution",
-     "TestingSlurmRunnerDelegate",
-     "SlurmRunnerDelegateUnshared"]
+     #"SlurmRunnerDelegateUnshared",
+     "DifferentDirectoryDelegate",
+     "TemporaryDirectoryDelegate",
+     "ShellDelegate",
+     "SudoDelegate"
+    ]
 
 @contextmanager
 def slurm_execution():

@@ -107,7 +107,7 @@ services:
         target: /cse142L
       - type: bind
         source: ${HOME}
-        target: ${HOME}
+        target: /root
     expose:
       - "8888"
     depends_on:
