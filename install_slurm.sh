@@ -35,7 +35,6 @@ mkdir -p /etc/sysconfig/slurm \
         /var/log/slurm \
         /data
 
-#mkdir -p /etc/slurm
 mkdir -p /etc/slurm/
 cp slurm.conf /etc/slurm/slurm.conf
 cp slurmdbd.conf /etc/slurm/slurmdbd.conf
