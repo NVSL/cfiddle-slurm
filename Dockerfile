@@ -32,7 +32,7 @@ RUN useradd -g cfiddlers -p fiddle -G docker_users -s /usr/bin/bash test_fiddler
 RUN useradd -r -s /usr/sbin/nologin -u 7000 -G docker_users -p fiddle cfiddle 
 COPY cfiddle_sudoers /etc/sudoers.d
 
-#RUN apt-get install -y openssh-server
+RUN apt-get install -y openssh-server
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
