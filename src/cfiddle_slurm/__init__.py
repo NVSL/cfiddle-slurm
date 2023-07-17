@@ -1,15 +1,15 @@
 from contextlib import contextmanager
 from cfiddle import *
 
-from  .SlurmRunnerDelegate import SlurmRunnerDelegate, DifferentDirectoryDelegate, TemporaryDirectoryDelegate, ShellDelegate, SudoDelegate
+from  .SlurmRunnerDelegate import SelfContainedDelegate
 
-all=["SlurmRunnerDelegate",
-     "slurm_execution",
+all=["SelfContainedDelegate", #SlurmRunnerDelegate",
+ #    "slurm_execution",
      #"SlurmRunnerDelegateUnshared",
-     "DifferentDirectoryDelegate",
-     "TemporaryDirectoryDelegate",
-     "ShellDelegate",
-     "SudoDelegate"
+ #    "DifferentDirectoryDelegate",
+  #   "TemporaryDirectoryDelegate",
+#     "ShellDelegate",
+#     "SudoDelegate"
     ]
 
 @contextmanager
