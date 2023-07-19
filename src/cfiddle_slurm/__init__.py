@@ -1,21 +1,14 @@
 from contextlib import contextmanager
 from cfiddle import *
 
-from  .SlurmRunnerDelegate import SelfContainedDelegate
+from  .SelfContainedExecutionMethod import SelfContainedExecutionMethod
 
-all=["SelfContainedDelegate", #SlurmRunnerDelegate",
- #    "slurm_execution",
-     #"SlurmRunnerDelegateUnshared",
- #    "DifferentDirectoryDelegate",
-  #   "TemporaryDirectoryDelegate",
-#     "ShellDelegate",
-#     "SudoDelegate"
-    ]
+all=["SelfContainedDelegate"]
 
 @contextmanager
 def slurm_execution():
     try:
-        with cfiddle_config(RunnerDelegate_type=SlurmRunnerDelegate):
+        with cfiddle_config(RunnerDelegate_type=SelfContainedExecutionMethod):
             yield
     finally:
         pass

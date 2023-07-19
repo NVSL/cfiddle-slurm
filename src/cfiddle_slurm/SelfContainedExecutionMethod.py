@@ -1,38 +1,14 @@
 import io
 import json
+import platform
 import zipfile
 import os
 import glob
 import logging as log
 
-from cfiddle.Runner import SubprocessDelegate
+from cfiddle.Runner import SubprocessExecutionMethod
 
-# Slurm Tasks
-# 3. Execute command in remote execution directory.
-# 4. Execute command in local directory
-
-# SSH tasks w/shared home directory
-# 3. Execute command in remote execution directory.
-# 4. Execute command in local directory
-
-# SSH tasks w/o shared home directory
-# 1. Build inputs zip file
-# 2. Create remote temp directory
-# 3. scp inputs file
-# 4. Execute command in remote execution directory.
-# 5. Execute command in local directory (in this process, in a separate process, in a docker container, with sudo in a docker container)
-# 6. Build outputs zip file
-# 7. scp outputs file back
-# 8. Copy back outputs zip file and unpack locally
-
-# native tasks
-# 4. Execute command in local directory
-#   1. in this process
-#   2. in a separate process
-#   3. in a docker container
-#   4. with sudo in a docker container
-
-class SelfContainedDelegate(SubprocessDelegate):
+class SelfContainedExecutionMethod(SubprocessExecutionMethod):
     """
     This delegate encapsulates all the data need to invoke and return the results of a cfiddle function, 
     including the input and output files.  This means that if the input or outputs are large, you may run into trouble, 
@@ -141,3 +117,7 @@ def collect_file_metadata(path):
                 st_atime=r.st_atime)
 
 
+from delegate_function import SSHDelegate, SubprocessDelegate, TemporaryDirectoryDelegate
+
+def TestSelfContainedDelegate():
+    return SelfContainedExecutionMethod(TemporaryDirectoryDelegate(subdelegate=SubprocessDelegate()))

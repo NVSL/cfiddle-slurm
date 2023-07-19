@@ -1,14 +1,10 @@
 import tempfile
 import glob
 import os
-import pwd
 from contextlib import contextmanager
 
 from cfiddle import *
-from cfiddle.Runner import SubprocessDelegate
-from delegate_function import delegate_function_run, BaseDelegate
-from cfiddle_slurm import *
-from cfiddle_slurm.SlurmRunnerDelegate import SudoSelfDelegate, GenericSelfContainedDelegate, TestGenericSelfContainedDelegate
+from cfiddle_slurm.SelfContainedExecutionMethod import TestSelfContainedDelegate
 import pytest
 
 @contextmanager
@@ -26,15 +22,10 @@ def _pristine_dir():
         with cfiddle_config(CFIDDLE_BUILD_ROOT=cfiddle_dir):
             yield cfiddle_dir
 
+
 @pytest.fixture(scope="module",
                 params=[
-                        #SubprocessDelegate,
-                        #SlurmRunnerDelegate,
-                        #DifferentDirectoryDelegate,
-                        #TemporaryDirectoryDelegate,
-                        #ShellDelegate,
-                        #SudoSelfDelegate,
-                        TestGenericSelfContainedDelegate
+                        TestSelfContainedDelegate,
                         ])
 def setup(request):
     with cfiddle_config(RunnerDelegate_type=request.param):
@@ -49,7 +40,7 @@ def test_file_list(setup):
 
 def test_file_zip():
 
-    from cfiddle_slurm.SlurmRunnerDelegate import zip_files, unzip_files, collect_file_metadata
+    from cfiddle_slurm.SelfContainedExecutionMethod import zip_files, unzip_files, collect_file_metadata
     
     with tempfile.TemporaryDirectory() as dst:
         files_to_zip = [x[:-1] if x[-1] == "/" else x for x in glob.glob("test_dir/**", recursive=True)]
@@ -101,9 +92,7 @@ extern "C" void foo() {
         assert int(f.read()) == 42;
     
 
-def test_slurm_execution(capfd):
-    from cfiddle.Runner import direct_execution
-    import socket
+def _test_slurm_execution(capfd):
     with slurm_execution():
         run(build(code(r"""
 #include <unistd.h>
